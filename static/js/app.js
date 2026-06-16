@@ -21,6 +21,7 @@ const retryBtn = document.getElementById('retry-btn');
 const emptyState = document.getElementById('empty-state');
 const resetFiltersBtn = document.getElementById('reset-filters-btn');
 const lastSyncText = document.getElementById('last-sync-text');
+const exportCsvBtn = document.getElementById('export-csv-btn');
 
 // Modal Elements
 const tweetModal = document.getElementById('tweet-modal');
@@ -56,6 +57,11 @@ function setupEventListeners() {
     // Refresh buttons
     refreshBtn.addEventListener('click', () => fetchReleaseNotes(true));
     retryBtn.addEventListener('click', () => fetchReleaseNotes(true));
+    
+    // Export CSV button
+    if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', exportToCSV);
+    }
     
     // Search input
     searchInput.addEventListener('input', (e) => {
@@ -270,7 +276,7 @@ function renderNotes() {
                                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                                 </svg>
                             </button>
-                            <button class="quick-action-btn" onclick="copyUpdateText('${update.id}')" title="Copy text to clipboard">
+                            <button class="quick-action-btn" onclick="copyUpdateText('${update.id}', this)" title="Copy text to clipboard">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -345,8 +351,8 @@ function resetFilters() {
     applyFiltersAndSearch();
 }
 
-// Copy update text to clipboard
-function copyUpdateText(updateId) {
+// Copy update text to clipboard with checkmark transition feedback
+function copyUpdateText(updateId, btnEl) {
     let foundUpdate = null;
     appState.releaseNotes.forEach(entry => {
         const u = entry.updates.find(x => x.id === updateId);
@@ -355,9 +361,78 @@ function copyUpdateText(updateId) {
     
     if (foundUpdate) {
         navigator.clipboard.writeText(foundUpdate.plain_text)
-            .then(() => showToast("Release notes copied to clipboard!"))
-            .catch(err => console.error("Clipboard copy failed:", err));
+            .then(() => {
+                showToast("Release notes copied to clipboard!");
+                
+                // Visual feedback on the button
+                if (btnEl) {
+                    const originalHtml = btnEl.innerHTML;
+                    btnEl.innerHTML = `
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    `;
+                    btnEl.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                    btnEl.style.background = 'rgba(16, 185, 129, 0.1)';
+                    
+                    setTimeout(() => {
+                        btnEl.innerHTML = originalHtml;
+                        btnEl.style.borderColor = '';
+                        btnEl.style.background = '';
+                    }, 2000);
+                }
+            })
+            .catch(err => {
+                console.error("Clipboard copy failed:", err);
+                showToast("Failed to copy to clipboard", "error");
+            });
     }
+}
+
+// Export currently filtered/searched release notes to CSV
+function exportToCSV() {
+    // Collect all updates currently in appState.filteredNotes
+    const headers = ["Date", "Type", "Link", "Description"];
+    
+    // Helper to escape CSV values safely
+    const escapeCSV = (text) => {
+        if (!text) return '""';
+        return '"' + text.replace(/"/g, '""').replace(/\r?\n|\r/g, ' ') + '"';
+    };
+    
+    let rows = [headers.join(",")];
+    
+    appState.filteredNotes.forEach(entry => {
+        entry.updates.forEach(update => {
+            const row = [
+                escapeCSV(entry.date),
+                escapeCSV(update.type),
+                escapeCSV(entry.link),
+                escapeCSV(update.plain_text)
+            ];
+            rows.push(row.join(","));
+        });
+    });
+    
+    // Check if there's data to export
+    if (rows.length <= 1) {
+        showToast("No release notes to export.", "warning");
+        return;
+    }
+    
+    const csvString = rows.join("\n");
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvString], { type: 'text/csv;charset=utf-8;' }); // UTF-8 BOM for Excel compatibility
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `bigquery_release_notes_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast("Exported to CSV successfully!");
 }
 
 // TWITTER COMPOSE MODAL LOGIC
