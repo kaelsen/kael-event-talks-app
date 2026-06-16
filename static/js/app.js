@@ -5,7 +5,8 @@ let appState = {
     activeFilter: 'all',
     searchQuery: '',
     lastSynced: null,
-    selectedUpdate: null
+    selectedUpdate: null,
+    readUpdates: JSON.parse(localStorage.getItem('read_updates')) || []
 };
 
 // DOM Elements
@@ -117,6 +118,13 @@ function setupEventListeners() {
             handleTweetTextareaInput();
             tweetTextarea.focus();
         });
+    });
+    
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && tweetModal.classList.contains('active')) {
+            closeComposer();
+        }
     });
 }
 
@@ -273,11 +281,27 @@ function renderNotes() {
         
         entry.updates.forEach(update => {
             const cardClass = getCardClassByType(update.type);
+            const isRead = appState.readUpdates.includes(update.id);
+            const cardReadClass = isRead ? 'status-read' : '';
+            const bookmarkActive = isRead ? 'active' : '';
+            const bookmarkIcon = isRead ? `
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+            ` : `
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+            `;
+            
             updatesHtml += `
-                <article class="update-card glass-panel ${cardClass}" id="card-${update.id}">
+                <article class="update-card glass-panel ${cardClass} ${cardReadClass}" id="card-${update.id}">
                     <div class="card-header">
                         <span class="type-pill">${update.type}</span>
                         <div class="card-actions-quick">
+                            <button class="quick-action-btn bookmark-btn ${bookmarkActive}" onclick="toggleReadStatus('${update.id}', this)" title="Mark as read / unread">
+                                ${bookmarkIcon}
+                            </button>
                             <button class="quick-action-btn tweet-btn" onclick="openComposer('${entry.date}', '${update.id}', '${entry.link}')" title="Tweet about this update">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -393,6 +417,50 @@ function copyUpdateText(updateId, btnEl) {
                 console.error("Clipboard copy failed:", err);
                 showToast("Failed to copy to clipboard", "error");
             });
+    }
+}
+
+// Toggle read status of a card and persist to localStorage
+function toggleReadStatus(updateId, btnEl) {
+    const cardEl = document.getElementById(`card-${updateId}`);
+    const index = appState.readUpdates.indexOf(updateId);
+    
+    let isReadNow = false;
+    if (index > -1) {
+        appState.readUpdates.splice(index, 1);
+    } else {
+        appState.readUpdates.push(updateId);
+        isReadNow = true;
+    }
+    
+    localStorage.setItem('read_updates', JSON.stringify(appState.readUpdates));
+    
+    // Update visual styles
+    if (cardEl) {
+        if (isReadNow) {
+            cardEl.classList.add('status-read');
+        } else {
+            cardEl.classList.remove('status-read');
+        }
+    }
+    
+    if (btnEl) {
+        btnEl.classList.toggle('active', isReadNow);
+        if (isReadNow) {
+            btnEl.innerHTML = `
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+            `;
+            showToast("Marked as read");
+        } else {
+            btnEl.innerHTML = `
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+            `;
+            showToast("Marked as unread");
+        }
     }
 }
 
@@ -530,7 +598,7 @@ function handleTweetTextareaInput() {
     // Visual indicators for length
     charCounterContainer.classList.remove('warning', 'danger');
     progressRingIndicator.style.stroke = '#3b82f6'; // primary blue
-    submitTweetBtn.disabled = len === 0;
+    submitTweetBtn.disabled = len === 0 || remaining < 0;
     
     if (remaining <= 30 && remaining > 0) {
         charCounterContainer.classList.add('warning');

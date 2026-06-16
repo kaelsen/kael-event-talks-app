@@ -554,6 +554,28 @@ body {
     color: #0f1419;
 }
 
+/* Bookmarking & Read States */
+.update-card.status-read {
+    opacity: 0.55;
+    transition: opacity var(--transition-normal);
+}
+
+.update-card.status-read:hover {
+    opacity: 0.9;
+}
+
+.quick-action-btn.bookmark-btn.active {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="light"] .quick-action-btn.bookmark-btn.active {
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.08);
+    border-color: rgba(37, 99, 235, 0.2);
+}
+
 /* Card Body Content */
 .card-content {
     padding: 0 1.5rem 1.5rem 1.5rem;
