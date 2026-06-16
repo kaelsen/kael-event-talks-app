@@ -22,6 +22,7 @@ const emptyState = document.getElementById('empty-state');
 const resetFiltersBtn = document.getElementById('reset-filters-btn');
 const lastSyncText = document.getElementById('last-sync-text');
 const exportCsvBtn = document.getElementById('export-csv-btn');
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
 
 // Modal Elements
 const tweetModal = document.getElementById('tweet-modal');
@@ -47,6 +48,7 @@ const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * 14; // r=14 -> ~87.96
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     fetchReleaseNotes(false);
     setupEventListeners();
     initProgressRing();
@@ -54,6 +56,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Setup Event Listeners
 function setupEventListeners() {
+    // Theme Toggle button
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', toggleTheme);
+    }
+    
     // Refresh buttons
     refreshBtn.addEventListener('click', () => fetchReleaseNotes(true));
     retryBtn.addEventListener('click', () => fetchReleaseNotes(true));
@@ -584,4 +591,25 @@ function showToast(message, type = 'success') {
             toast.style.display = 'none';
         }, 300);
     }, 4000);
+}
+
+// Initialize Theme from LocalStorage or preference
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+}
+
+// Toggle Theme (Dark / Light)
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    if (newTheme === 'light') {
+        showToast("Switched to Light Mode ☀️");
+    } else {
+        showToast("Switched to Dark Mode 🌙");
+    }
 }
